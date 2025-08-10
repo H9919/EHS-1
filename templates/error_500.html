@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% extends "base.html" %}
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="text-center">
+                <div class="mb-4">
+                    <i class="bi bi-exclamation-octagon display-1 text-danger"></i>
+                </div>
+                <h3 class="mb-3">Something Went Wrong</h3>
+                <p class="text-muted mb-4">
+                    We're experiencing a technical issue. Please try again in a moment.
+                </p>
+                
+                <div class="alert alert-warning">
+                    <h6><i class="bi bi-info-circle"></i> What You Can Do</h6>
+                    <ul class="text-start mb-0">
+                        <li>Refresh the page</li>
+                        <li>Try again in a few minutes</li>
+                        <li>Use the chatbot for assistance</li>
+                        <li>Contact support if the issue persists</li>
+                    </ul>
+                </div>
+                
+                <div class="d-grid gap-2">
+                    <button onclick="window.location.reload()" class="btn btn-primary">
+                        <i class="bi bi-arrow-clockwise"></i> Refresh Page
+                    </button>
+                    <a href="/" class="btn btn-outline-primary">
+                        <i class="bi bi-house"></i> Go to Dashboard
+                    </a>
+                    <button onclick="showContactInfo()" class="btn btn-outline-secondary">
+                        <i class="bi bi-telephone"></i> Contact Support
+                    </button>
+                </div>
+                
+                {% if blueprints_loaded %}
+                <div class="mt-4">
+                    <small class="text-muted">System Status:</small>
+                    <div class="d-flex flex-wrap gap-1 justify-content-center mt-1">
+                        {% for module in blueprints_loaded %}
+                        <span class="badge bg-success">{{ module }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Contact Modal -->
+<div class="modal fade" id="contactModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Support Contact Information</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <h6>Technical Support</h6>
+                <p>
+                    <strong>Email:</strong> support@company.com<br>
+                    <strong>Phone:</strong> (555) 123-4571<br>
+                    <small class="text-muted">Available 24/7 for critical issues</small>
+                </p>
+                
+                <h6>EHS Department</h6>
+                <p>
+                    <strong>Email:</strong> ehs@company.com<br>
+                    <strong>Phone:</strong> (555) 123-4569<br>
+                    <small class="text-muted">Business hours: 8 AM - 5 PM</small>
+                </p>
+                
+                <div class="alert alert-info">
+                    <small>
+                        <strong>When reporting this error, please include:</strong><br>
+                        • What you were trying to do<br>
+                        • The time the error occurred<br>
+                        • Any error messages you saw
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function showContactInfo() {
+    new bootstrap.Modal(document.getElementById('contactModal')).show();
+}
+</script>
+{% endblock %}
