@@ -1,0 +1,247 @@
+<!-- templates/fallback_module.html -->
+{% extends "base.html" %}
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="text-center">
+                <div class="mb-4">
+                    <i class="bi bi-tools display-1 text-muted"></i>
+                </div>
+                <h3 class="mb-3">{{ module_name }} - Under Development</h3>
+                <p class="text-muted mb-4">{{ description }}</p>
+                
+                <div class="alert alert-info">
+                    <h6><i class="bi bi-info-circle"></i> Alternative Options</h6>
+                    <p class="mb-0">While this module is being set up, you can:</p>
+                </div>
+                
+                <div class="row mb-4">
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <i class="bi bi-robot fs-1 text-primary mb-3"></i>
+                                <h6>Use the AI Assistant</h6>
+                                <p class="small text-muted">Ask our chatbot for help with {{ module_name.lower() }}</p>
+                                <a href="/" class="btn btn-primary btn-sm">
+                                    <i class="bi bi-chat"></i> Chat Now
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <i class="bi bi-telephone fs-1 text-success mb-3"></i>
+                                <h6>Contact Support</h6>
+                                <p class="small text-muted">Reach out to the EHS team directly</p>
+                                <button class="btn btn-success btn-sm" onclick="showContactInfo()">
+                                    <i class="bi bi-person-lines-fill"></i> Contact Info
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="d-flex gap-2 justify-content-center">
+                    <a href="/dashboard" class="btn btn-outline-primary">
+                        <i class="bi bi-arrow-left"></i> Back to Dashboard
+                    </a>
+                    <a href="/incidents/new" class="btn btn-outline-danger">
+                        <i class="bi bi-exclamation-triangle"></i> Report Incident
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Contact Modal -->
+<div class="modal fade" id="contactModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">EHS Contact Information</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-6">
+                        <h6>Emergency</h6>
+                        <p>
+                            <strong>911</strong><br>
+                            <small class="text-muted">Life-threatening emergencies</small>
+                        </p>
+                        
+                        <h6>Site Emergency</h6>
+                        <p>
+                            <strong>(555) 123-4567</strong><br>
+                            <small class="text-muted">On-site emergencies</small>
+                        </p>
+                    </div>
+                    <div class="col-6">
+                        <h6>EHS Department</h6>
+                        <p>
+                            <strong>(555) 123-4569</strong><br>
+                            <small class="text-muted">General EHS inquiries</small>
+                        </p>
+                        
+                        <h6>Safety Hotline</h6>
+                        <p>
+                            <strong>(555) 123-4570</strong><br>
+                            <small class="text-muted">Anonymous reporting</small>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function showContactInfo() {
+    new bootstrap.Modal(document.getElementById('contactModal')).show();
+}
+</script>
+{% endblock %}
+
+<!-- templates/error_404.html -->
+{% extends "base.html" %}
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="text-center">
+                <div class="mb-4">
+                    <i class="bi bi-exclamation-triangle display-1 text-warning"></i>
+                </div>
+                <h3 class="mb-3">Page Not Found</h3>
+                <p class="text-muted mb-4">
+                    The page you're looking for doesn't exist or may have been moved.
+                </p>
+                
+                <div class="alert alert-info">
+                    <h6><i class="bi bi-lightbulb"></i> Try These Instead</h6>
+                    <div class="d-grid gap-2">
+                        <a href="/" class="btn btn-primary btn-sm">
+                            <i class="bi bi-house"></i> Go to Dashboard
+                        </a>
+                        <a href="/incidents/new" class="btn btn-outline-danger btn-sm">
+                            <i class="bi bi-plus"></i> Report Incident
+                        </a>
+                        <a href="/sds" class="btn btn-outline-success btn-sm">
+                            <i class="bi bi-file-text"></i> Browse SDS Library
+                        </a>
+                    </div>
+                </div>
+                
+                {% if blueprints_loaded %}
+                <div class="mt-4">
+                    <h6>Available Modules:</h6>
+                    <div class="d-flex flex-wrap gap-1 justify-content-center">
+                        {% for module in blueprints_loaded %}
+                        <span class="badge bg-success">{{ module }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+<!-- templates/error_500.html -->
+{% extends "base.html" %}
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="text-center">
+                <div class="mb-4">
+                    <i class="bi bi-exclamation-octagon display-1 text-danger"></i>
+                </div>
+                <h3 class="mb-3">Something Went Wrong</h3>
+                <p class="text-muted mb-4">
+                    We're experiencing a technical issue. Please try again in a moment.
+                </p>
+                
+                <div class="alert alert-warning">
+                    <h6><i class="bi bi-info-circle"></i> What You Can Do</h6>
+                    <ul class="text-start mb-0">
+                        <li>Refresh the page</li>
+                        <li>Try again in a few minutes</li>
+                        <li>Use the chatbot for assistance</li>
+                        <li>Contact support if the issue persists</li>
+                    </ul>
+                </div>
+                
+                <div class="d-grid gap-2">
+                    <button onclick="window.location.reload()" class="btn btn-primary">
+                        <i class="bi bi-arrow-clockwise"></i> Refresh Page
+                    </button>
+                    <a href="/" class="btn btn-outline-primary">
+                        <i class="bi bi-house"></i> Go to Dashboard
+                    </a>
+                    <button onclick="showContactInfo()" class="btn btn-outline-secondary">
+                        <i class="bi bi-telephone"></i> Contact Support
+                    </button>
+                </div>
+                
+                {% if blueprints_loaded %}
+                <div class="mt-4">
+                    <small class="text-muted">System Status:</small>
+                    <div class="d-flex flex-wrap gap-1 justify-content-center mt-1">
+                        {% for module in blueprints_loaded %}
+                        <span class="badge bg-success">{{ module }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Contact Modal -->
+<div class="modal fade" id="contactModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Support Contact Information</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <h6>Technical Support</h6>
+                <p>
+                    <strong>Email:</strong> support@company.com<br>
+                    <strong>Phone:</strong> (555) 123-4571<br>
+                    <small class="text-muted">Available 24/7 for critical issues</small>
+                </p>
+                
+                <h6>EHS Department</h6>
+                <p>
+                    <strong>Email:</strong> ehs@company.com<br>
+                    <strong>Phone:</strong> (555) 123-4569<br>
+                    <small class="text-muted">Business hours: 8 AM - 5 PM</small>
+                </p>
+                
+                <div class="alert alert-info">
+                    <small>
+                        <strong>When reporting this error, please include:</strong><br>
+                        • What you were trying to do<br>
+                        • The time the error occurred<br>
+                        • Any error messages you saw
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function showContactInfo() {
+    new bootstrap.Modal(document.getElementById('contactModal')).show();
+}
+</script>
+{% endblock %}
