@@ -149,7 +149,7 @@ def create_app():
         if request.path.startswith('/api/'):
             return jsonify({"error": "API endpoint not found"}), 404
         
-        return render_template("fallback_module.html", 
+        return render_template("error_404.html", 
                              module_name="Page",
                              description="The page you're looking for was not found",
                              blueprints_loaded=blueprints_loaded), 404
@@ -162,7 +162,7 @@ def create_app():
         if request.path.startswith('/api/'):
             return jsonify({"error": "Internal server error"}), 500
         
-        return render_template("fallback_module.html", 
+        return render_template("error_500.html", 
                              module_name="System Error",
                              description="A system error occurred",
                              blueprints_loaded=blueprints_loaded), 500
