@@ -5,9 +5,13 @@ import time
 from pathlib import Path
 from werkzeug.utils import secure_filename
 from utils.uploads import is_allowed, save_upload
+from services.ehs_chatbot import SmartIntentClassifier
 from flask import Blueprint, request, jsonify, render_template
 
 chatbot_bp = Blueprint("chatbot", __name__)
+
+# Lightweight classifier for fast first-turn routing
+quick_intent_classifier = SmartIntentClassifier()
 
 # Global chatbot instance - lazy loaded with better error handling
 _chatbot_instance = None
@@ -52,7 +56,8 @@ def chat_interface():
     if request.method == "GET":
         return render_template("enhanced_dashboard.html")
     
-    try:
+    try:    t0 = time.monotonic()
+
         # Parse request data with enhanced validation
         user_message, user_id, context, uploaded_file = parse_request_data_comprehensive()
         
@@ -66,12 +71,36 @@ def chat_interface():
         
         try:
             # Process with smart chatbot
-            response = chatbot.process_message(user_message, user_id, context)
+            response = chat
+        # Fast path for incident start: instant response without heavy processing
+        try:
+            intent, conf = quick_intent_classifier.classify(user_message)
+        except Exception:
+            intent, conf = None, 0.0
+        
+        if intent == "incident_reporting":
+            app_msg = ("Okay—let’s start your incident report.\n"
+                       "What kind of incident is it? (injury, vehicle, near miss, property, "
+                       "environmental, security, depot, other)")
+            # Log timing for fast path
+            try:
+                import logging
+                logging.getLogger(__name__).info("chat:fast_first %.3fs", time.monotonic() - t0)
+            except Exception:
+                pass
+            return jsonify({"ok": True, "message": app_msg, "type": "incident_start", "intent": intent, "confidence": conf})
+bot.process_message(user_message, user_id, context)
             
             # Validate and enhance response
             response = validate_and_enhance_response(response, user_message, uploaded_file)
             
-            print(f"DEBUG: Smart response generated: {response.get('type')}")
+            print(f"DEBUG: Smart response generated: {response.get('type')
+            try:
+                import logging
+                logging.getLogger(__name__).info(\"chat:smart %.3fs\", time.monotonic() - t0)
+            except Exception:
+                pass
+}")
             return jsonify(response)
             
         except Exception as e:
