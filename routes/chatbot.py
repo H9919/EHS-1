@@ -27,7 +27,8 @@ def chat_interface():
 
     # POST: process chat message
     t0 = time.monotonic()
-    user_message = (request.form.get("message") or "").strip()
+    payload = request.get_json(silent=True) or {}
+    user_message = (request.form.get("message") or payload.get("message") or "").strip()
     user_id = (request.form.get("user_id") or "main_chat_user").strip()
     uploaded_file = request.files.get("file")
 
@@ -97,6 +98,7 @@ def chat_interface():
 
 # 5 Whys
 @chatbot_bp.post("/five_whys/start")
+@chatbot_bp.post("/chat/five_whys/start")
 def five_whys_start():
     problem = (request.form.get("problem") or "").strip()
     user_id = (request.form.get("user_id") or "main_chat_user").strip()
@@ -106,6 +108,7 @@ def five_whys_start():
     return jsonify({"ok": True, "step": 1, "prompt": "Why 1?", "problem": problem})
 
 @chatbot_bp.post("/five_whys/answer")
+@chatbot_bp.post("/chat/five_whys/answer")
 def five_whys_answer():
     answer = (request.form.get("answer") or "").strip()
     user_id = (request.form.get("user_id") or "main_chat_user").strip()
@@ -133,17 +136,9 @@ def five_whys_answer():
         next_step = sess["step"] + 1
         return jsonify({"ok": True, "complete": False, "prompt": f"Why {next_step}?", "progress": len(sess['whys']) })
 
-
-
-# Reset chat session (stateless backend; this just gives the UI a clean ack)
-@chatbot_bp.post("/chat/reset")
-def chat_reset():
-    try:
-        return jsonify({"ok": True, "message": "Session reset."})
-    except Exception:
-        return jsonify({"ok": True})
 # CAPA suggestions
 @chatbot_bp.post("/capa/suggest")
+@chatbot_bp.post("/chat/capa/suggest")
 def capa_suggest():
     desc = (request.form.get("description") or "").strip()
     if not desc:
@@ -152,3 +147,9 @@ def capa_suggest():
     res = mgr.suggest_corrective_actions(desc)
     out = {"ok": True}; out.update(res)
     return jsonify(out)
+
+
+@chatbot_bp.post("/chat/reset")
+def chat_reset():
+    # Stateless reset ack for the UI
+    return jsonify({"ok": True, "message": "Session reset."})
