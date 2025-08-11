@@ -153,110 +153,6 @@ def create_app():
                              module_name="Page",
                              description="The page you're looking for was not found",
                              blueprints_loaded=blueprints_loaded), 404
-    
-    @app.errorhandler(500)
-def internal_error(e):
-    try:
-        return render_template("error_500.html", error=str(e)), 500
-    except Exception:
-        return "Internal Server Error", 500
-    def too_large(error):
-        return jsonify({"error": "File too large. Maximum size is 16MB."}), 413
-    
-    @app.errorhandler(502)
-    def bad_gateway(error):
-        """Handle 502 errors"""
-        print(f"Bad Gateway error: {error}")
-        if request.path.startswith('/api/'):
-            return jsonify({"error": "Service temporarily unavailable"}), 502
-        
-        return render_template("fallback_module.html", 
-                             module_name="Service Unavailable",
-                             description="Service temporarily unavailable",
-                             blueprints_loaded=blueprints_loaded), 502
-    
-    # Template filters
-    @app.template_filter('timeago')
-    def timeago_filter(timestamp):
-        """Convert timestamp to human-readable time ago"""
-        try:
-            if isinstance(timestamp, (int, float)):
-                dt = datetime.fromtimestamp(timestamp)
-            else:
-                dt = timestamp
-            
-            now = datetime.now()
-            diff = now - dt
-            
-            if diff.days > 0:
-                return f"{diff.days} day{'s' if diff.days != 1 else ''} ago"
-            elif diff.seconds > 3600:
-                hours = diff.seconds // 3600
-                return f"{hours} hour{'s' if hours != 1 else ''} ago"
-            elif diff.seconds > 60:
-                minutes = diff.seconds // 60
-                return f"{minutes} minute{'s' if minutes != 1 else ''} ago"
-            else:
-                return "Just now"
-        except:
-            return "Unknown"
-    
-    @app.template_filter('priority_badge')
-    def priority_badge_filter(priority):
-        """Convert priority to Bootstrap badge class"""
-        badge_map = {
-            "critical": "danger",
-            "high": "warning", 
-            "medium": "info",
-            "low": "secondary"
-        }
-        return badge_map.get(str(priority).lower(), "secondary")
-    
-    # Global template helper for moment-like functionality
-    try:
-        from datetime import datetime as dt
-        
-        @app.template_global()
-        def moment(timestamp=None):
-            """Create a moment-like object for date handling"""
-            if timestamp is None:
-                timestamp = dt.now()
-            elif isinstance(timestamp, (int, float)):
-                timestamp = dt.fromtimestamp(timestamp)
-            elif isinstance(timestamp, str):
-                try:
-                    timestamp = dt.fromisoformat(timestamp.replace('Z', '+00:00'))
-                except:
-                    timestamp = dt.now()
-            
-            class MomentHelper:
-                def __init__(self, dt_obj):
-                    self.dt = dt_obj
-                
-                def format(self, fmt):
-                    return self.dt.strftime(fmt)
-                
-                def fromNow(self):
-                    now = dt.now()
-                    diff = now - self.dt
-                    
-                    if diff.days > 0:
-                        return f"{diff.days} day{'s' if diff.days != 1 else ''} ago"
-                    elif diff.seconds > 3600:
-                        hours = diff.seconds // 3600
-                        return f"{hours} hour{'s' if hours != 1 else ''} ago"
-                    elif diff.seconds > 60:
-                        minutes = diff.seconds // 60
-                        return f"{minutes} minute{'s' if minutes != 1 else ''} ago"
-                    else:
-                        return "Just now"
-            
-            return MomentHelper(timestamp)
-    except Exception as e:
-        print(f"Warning: Could not set up moment filter: {e}")
-    
-    return app
-
 def create_fallback_routes(app, url_prefix, module_name):
     """Create fallback routes for unavailable modules with unique function names"""
     # Create unique function names to avoid conflicts
@@ -336,3 +232,11 @@ if __name__ == "__main__":
     print("=" * 60)
     
     app.run(host="0.0.0.0", port=port, debug=debug)
+
+@app.errorhandler(500)
+def internal_error(e):
+    try:
+        return render_template("error_500.html", error=str(e)), 500
+    except Exception:
+        return "Internal Server Error", 500
+
