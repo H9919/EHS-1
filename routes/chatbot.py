@@ -7,6 +7,26 @@ from services.ehs_chatbot import SmartEHSChatbot, SmartIntentClassifier, five_wh
 from services.capa_manager import CAPAManager
 from utils.uploads import is_allowed, save_upload
 
+import re
+
+def _normalize_intent_text(t: str) -> str:
+    s = (t or "").strip().lower()
+    s = re.sub(r"[^\w\s/]+$", "", s)
+    if re.search(r"\breport( an)? incident\b", s) or re.search(r"\bincident report\b", s) or re.search(r"\bstart .*incident\b", s):
+        return "Report incident"
+    if re.search(r"\bsafety concern\b|\bnear miss\b|\bunsafe\b", s):
+        return "Safety concern"
+    if re.search(r"\b(find )?sds\b|\bsafety data sheet\b", s):
+        return "Find SDS"
+    if re.search(r"\brisk assessment\b|\berc\b|\blikelihood\b", s):
+        return "Risk assessment"
+    if re.search(r"\burgent\b|\bpriority\b|\boverdue\b", s):
+        return "What's urgent?"
+    if re.search(r"\btour\b|\bgetting started\b|\bguide\b|\bonboard\b", s):
+        return "Help with this page"
+    return t
+
+
 chatbot_bp = Blueprint("chatbot", __name__)
 
 _quick = SmartIntentClassifier()
@@ -29,6 +49,7 @@ def chat_interface():
     t0 = time.monotonic()
     payload = request.get_json(silent=True) or {}
     user_message = (request.form.get("message") or payload.get("message") or "").strip()
+    user_message = _normalize_intent_text(user_message)
     user_id = (request.form.get("user_id") or "main_chat_user").strip()
     uploaded_file = request.files.get("file")
 
