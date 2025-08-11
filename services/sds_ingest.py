@@ -284,8 +284,8 @@ def _extract_chemical_info(text: str) -> Dict:
     # CAS number extraction
     cas_pattern = r'CAS[#\s\-]*(\d{2,7}-\d{2}-\d)'
     labeled = re.findall(r'CAS(?:\s+Number)?[:#]?\s*(\d{2,7}-\d{2}-\d)', text, re.IGNORECASE)
-general = re.findall(r'\b(\d{2,7}-\d{2}-\d)\b', text)
-info['cas_numbers'] = sorted(set(labeled) | set(general))
+    general = re.findall(r'\b(\d{2,7}-\d{2}-\d)\b', text)
+    info['cas_numbers'] = sorted(set(labeled) | set(general))
     
     # Hazard statements (H-codes)
     h_pattern = r'H(\d{3})[:\s]*([^\n\r]+)'

@@ -13,7 +13,16 @@ def build_incident_pdf(rec: dict, completeness: int, ok: bool, missing: list, ou
     story = []
 
     story.append(Paragraph("<b>Incident Report</b>", styles["Title"]))
+    # Anonymity banner
+    if rec.get("anonymous"):
+        story.append(Paragraph("<font color=\"#ef4444\"><b>Anonymous Reporter</b></font>", styles["Heading2"]))
+        story.append(Spacer(1, 0.1*inch))
+
     story.append(Spacer(1, 0.2*inch))
+    if not rec.get("anonymous") and rec.get("reporter"):
+        story.append(Paragraph(f"<b>Reporter:</b> {rec.get('reporter')}", styles["BodyText"]))
+        story.append(Spacer(1, 0.1*inch))
+
 
     meta_table = Table([
         ["Incident ID", rec.get("id","")],
