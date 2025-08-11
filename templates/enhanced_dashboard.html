@@ -219,13 +219,25 @@
     p.classList.remove('d-none');
   }
 
+  // ---- Intent normalizer (maps common phrasings to backend-friendly triggers)
+  function normalizeIntent(text){
+    const t = (text||'').trim().toLowerCase();
+    if (/^help( with (this )?page)?$/.test(t) || /help.*page/.test(t)) return "Help with this page";
+    if (/report( an)? incident|start.*incident|incident report/.test(t)) return "Report incident";
+    if (/safety concern|near miss|unsafe/.test(t)) return "Safety concern";
+    if (/find sds|sds|safety data sheet/.test(t)) return "Find SDS";
+    if (/risk assessment|erc|likelihood/.test(t)) return "Risk assessment";
+    if (/urgent|priority|overdue/.test(t)) return "What's urgent?";
+    if (/tour|getting started|guide|onboard/.test(t)) return "Help with this page";
+    return text;
+  }
+
   // ---- API calls
   async function postChat(bodyFd){
     const res = await fetch('/chat', {method:'POST', body: bodyFd});
     if(!res.ok) throw new Error('HTTP '+res.status);
     return await res.json();
   }
-
   async function postFiveStart(problem){
     const fd = new FormData();
     fd.append('problem', problem);
@@ -233,7 +245,6 @@
     const r = await fetch('/chat/five_whys/start', {method:'POST', body:fd});
     return await r.json();
   }
-
   async function postFiveAnswer(ans, complete=false){
     const fd = new FormData();
     fd.append('answer', ans);
@@ -242,12 +253,17 @@
     const r = await fetch('/chat/five_whys/answer', {method:'POST', body:fd});
     return await r.json();
   }
-
   async function postCapaSuggest(desc){
     const fd = new FormData();
     fd.append('description', desc);
     const r = await fetch('/chat/capa/suggest', {method:'POST', body:fd});
     return await r.json();
+  }
+
+  // ---- Main send wrapper (used by quick-action cards)
+  function sendMessage(text){
+    msg.value = normalizeIntent(text || '');
+    sendBtn.click();
   }
 
   // ---- Events
@@ -272,7 +288,10 @@
   async function onSend(e){
     e.preventDefault();
     if(waiting) return;
-    const text = (msg.value||'').trim();
+
+    const raw = (msg.value||'').trim();
+    const text = normalizeIntent(raw);
+
     if(!text && !selFile) return;
 
     // 5-Whys active → treat this as an answer
@@ -372,7 +391,6 @@
       $('#sysStatus').textContent = 'Offline'; $('#sysStatus').classList.remove('text-success'); $('#sysStatus').classList.add('text-danger');
     }
   }
-
   async function loadCapas(){
     try{
       const st = $('#capaFilterStatus').value;
@@ -399,7 +417,7 @@
     historyBuf=[]; fiveActive=false; selFile=null; msg.value=''; file.value=''; $('#filePreview').classList.add('d-none');
     chat.innerHTML=''; document.title='Smart EHS Assistant';
     // show welcome again
-    $('#welcome').style.display='block';
+    const w = document.getElementById('welcome'); if (w) w.style.display='block';
     addMessage('ai',"👋 Hello! I'm your Smart EHS Assistant. How can I help?");
     try{ await fetch('/chat/reset',{method:'POST'}); }catch{}
   }
