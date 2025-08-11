@@ -1,80 +1,86 @@
-# services/embeddings.py - FIXED VERSION with clean logging and proper SBERT gating
-import os
+# services/embeddings.py — SBERT guardrails: lazy-load, async warmup, cache, fast fallback
+import os, time, threading
+from pathlib import Path
 import numpy as np
-from functools import lru_cache
 
-# Check if SBERT should be enabled
-ENABLE_SBERT = os.environ.get('ENABLE_SBERT', 'false').lower() == 'true'
-SBERT_AVAILABLE = False
+# Feature flag: enable semantic embeddings
+ENABLE_SBERT = os.getenv('ENABLE_SBERT', 'false').lower() == 'true'
 
-# Only import sentence_transformers if SBERT is enabled
-if ENABLE_SBERT:
-    try:
+# Import only if requested
+_SBERT_IMPORT_OK = False
+try:
+    if ENABLE_SBERT:
         from sentence_transformers import SentenceTransformer
-        SBERT_AVAILABLE = True
-        print("✓ SBERT embeddings enabled and available")
-    except ImportError:
-        print("⚠ SBERT requested but not available - using fallback embeddings")
-        SBERT_AVAILABLE = False
-else:
-    # Only log once when module is imported
-    print("ℹ SBERT embeddings disabled via environment variable")
+        _SBERT_IMPORT_OK = True
+except Exception:
+    _SBERT_IMPORT_OK = False
 
-@lru_cache(maxsize=1)
-def get_model():
-    """Get sentence transformer model only if SBERT is available"""
-    if not SBERT_AVAILABLE:
-        raise ImportError("SBERT not available - embeddings disabled")
-    
-    # Compact, fast model
-    return SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+SBERT_AVAILABLE = ENABLE_SBERT and _SBERT_IMPORT_OK
 
-def embed_texts(texts):
-    """Embed texts using SBERT if available, otherwise return zero vectors"""
-    if not texts:
-        return np.zeros((0, 384), dtype="float32")
-    
-    if not SBERT_AVAILABLE:
-        # Return zero vectors as fallback
-        return np.zeros((len(texts), 384), dtype="float32")
-    
+# Internal model holder
+_SBERT_MODEL = None
+_SBERT_LOADING = False
+
+def _load_model():
+    global _SBERT_MODEL, _SBERT_LOADING
     try:
-        model = get_model()
-        embs = model.encode(texts, normalize_embeddings=True)
-        return np.asarray(embs, dtype="float32")
+        model_name = os.getenv('SBERT_MODEL', 'paraphrase-MiniLM-L6-v2')
+        cache_dir = Path(os.getenv('SBERT_CACHE', 'data/models')).absolute()
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        _SBERT_MODEL = SentenceTransformer(model_name, cache_folder=str(cache_dir), device='cpu')
+        # quick warmup (tiny) to compile kernels
+        _ = _SBERT_MODEL.encode(["ok"], normalize_embeddings=True, show_progress_bar=False)
+        print(f"✓ SBERT model ready: {model_name} (cache={cache_dir})")
     except Exception as e:
-        print(f"ERROR: Failed to generate embeddings: {e}")
-        # Return zero vectors as fallback
-        return np.zeros((len(texts), 384), dtype="float32")
+        print(f"⚠ SBERT load failed: {e}")
+        _SBERT_MODEL = None
+    finally:
+        _SBERT_LOADING = False
 
-def embed_query(q: str):
-    """Embed single query string"""
+def ensure_model_async():
+    """Start background load if enabled and not loaded yet; never block the request."""
     if not SBERT_AVAILABLE:
-        # Return zero vector as fallback
-        return np.zeros(384, dtype="float32")
-    
-    try:
-        model = get_model()
-        v = model.encode([q], normalize_embeddings=True)[0]
-        return np.asarray(v, dtype="float32")
-    except Exception as e:
-        print(f"ERROR: Failed to generate query embedding: {e}")
-        # Return zero vector as fallback
-        return np.zeros(384, dtype="float32")
-
-def cosine_sim(a: np.ndarray, b: np.ndarray):
-    """Calculate cosine similarity between normalized vectors"""
-    try:
-        # expects normalized vectors
-        return float(np.dot(a, b))
-    except Exception as e:
-        print(f"ERROR: Failed to calculate cosine similarity: {e}")
-        return 0.0
+        return
+    global _SBERT_LOADING
+    if _SBERT_MODEL is None and not _SBERT_LOADING:
+        _SBERT_LOADING = True
+        threading.Thread(target=_load_model, daemon=True).start()
 
 def is_sbert_available():
-    """Check if SBERT embeddings are available"""
     return SBERT_AVAILABLE
 
+def model_ready():
+    return _SBERT_MODEL is not None
+
 def get_embedding_dim():
-    """Get embedding dimension"""
-    return 384  # Standard dimension for all-MiniLM-L6-v2
+    # MiniLM family uses 384 dims
+    return 384
+
+def embed_texts(texts, timeout_ms=800):
+    """Return embeddings or zeros if model not ready quickly."""
+    if not texts:
+        return np.zeros((0, get_embedding_dim()), dtype='float32')
+    if not SBERT_AVAILABLE:
+        return np.zeros((len(texts), get_embedding_dim()), dtype='float32')
+    if _SBERT_MODEL is None:
+        ensure_model_async()
+        return np.zeros((len(texts), get_embedding_dim()), dtype='float32')
+    try:
+        t0 = time.monotonic()
+        vecs = _SBERT_MODEL.encode(texts, normalize_embeddings=True, batch_size=32, show_progress_bar=False)
+        dt = (time.monotonic() - t0) * 1000.0
+        if dt > timeout_ms:
+            print(f"⚠ SBERT encode slow: {dt:.0f}ms for {len(texts)} texts")
+        return np.asarray(vecs, dtype='float32')
+    except Exception as e:
+        print(f"⚠ SBERT encode failed: {e}")
+        return np.zeros((len(texts), get_embedding_dim()), dtype='float32')
+
+def embed_query(q: str):
+    return embed_texts([q])[0] if q else np.zeros(get_embedding_dim(), dtype='float32')
+
+def cosine_sim(a: np.ndarray, b: np.ndarray) -> float:
+    try:
+        return float(np.dot(a, b))
+    except Exception:
+        return 0.0
