@@ -1,4 +1,4 @@
-# app.py - FIXED VERSION with unique route function names
+# app.py - FIXED VERSION with error handler properly placed
 import os
 import sys
 import json
@@ -143,7 +143,7 @@ def create_app():
         status_code = 200 if health_status["status"] == "healthy" else 503
         return jsonify(health_status), status_code
     
-    # Error handlers
+    # Error handlers - MOVED INSIDE create_app() function
     @app.errorhandler(404)
     def not_found_error(error):
         if request.path.startswith('/api/'):
@@ -153,6 +153,16 @@ def create_app():
                              module_name="Page",
                              description="The page you're looking for was not found",
                              blueprints_loaded=blueprints_loaded), 404
+
+    @app.errorhandler(500)
+    def internal_error(e):
+        try:
+            return render_template("error_500.html", error=str(e)), 500
+        except Exception:
+            return "Internal Server Error", 500
+    
+    return app
+
 def create_fallback_routes(app, url_prefix, module_name):
     """Create fallback routes for unavailable modules with unique function names"""
     # Create unique function names to avoid conflicts
@@ -232,11 +242,3 @@ if __name__ == "__main__":
     print("=" * 60)
     
     app.run(host="0.0.0.0", port=port, debug=debug)
-
-@app.errorhandler(500)
-def internal_error(e):
-    try:
-        return render_template("error_500.html", error=str(e)), 500
-    except Exception:
-        return "Internal Server Error", 500
-
