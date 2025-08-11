@@ -36,7 +36,7 @@ def chat_interface():
 
     # Lightweight intent for fast first reply
     try:
-        intent, conf = _quick.classify(user_message)
+        intent, conf = _quick.classify_intent(user_message)
     except Exception:
         intent, conf = None, 0.0
 
@@ -69,6 +69,14 @@ def chat_interface():
         )
         app.logger.info("chat:fast_first %.3fs", time.monotonic()-t0)
         return jsonify({"message": msg, "type": "incident_start", "intent": intent, "confidence": conf})
+
+    # Default quick reply to keep UI responsive
+    if intent is None:
+        app.logger.info('chat:fast_prompt')
+        return jsonify({
+            'message': 'How can I help? (report incident, safety concern, SDS help, or general question)',
+            'type': 'prompt', 'intent': intent, 'confidence': conf
+        })
 
     # Full smart processing
     bot = get_chatbot()
@@ -125,6 +133,15 @@ def five_whys_answer():
         next_step = sess["step"] + 1
         return jsonify({"ok": True, "complete": False, "prompt": f"Why {next_step}?", "progress": len(sess['whys']) })
 
+
+
+# Reset chat session (stateless backend; this just gives the UI a clean ack)
+@chatbot_bp.post("/chat/reset")
+def chat_reset():
+    try:
+        return jsonify({"ok": True, "message": "Session reset."})
+    except Exception:
+        return jsonify({"ok": True})
 # CAPA suggestions
 @chatbot_bp.post("/capa/suggest")
 def capa_suggest():
