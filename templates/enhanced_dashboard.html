@@ -1,125 +1,256 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Smart EHS Assistant</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
-    body { background: #f6f7fb; }
-    .chat-card { max-width: 880px; margin: 24px auto; }
-    .bubble { max-width: 80%; }
-    .bubble.user { background:#0d6efd; color:#fff; }
-    .bubble.bot { background:#f1f3f5; }
-    .dim { opacity: .5; }
+    body{background:#f6f7fb}
+    .hero{background:linear-gradient(135deg,#0d6efd 0%,#4f8cff 100%);color:#fff;border-radius:1rem;padding:24px}
+    .quick-card{cursor:pointer;transition:.15s transform ease,.15s box-shadow ease}
+    .quick-card:hover{transform:translateY(-2px);box-shadow:0 0.5rem 1rem rgba(0,0,0,.08)}
+    .chat-card{height:64vh;display:flex;flex-direction:column}
+    .chat-body{flex:1;overflow:auto;background:#fff;border-radius:.75rem;border:1px solid #e9ecef}
+    .bubble{max-width:80%}
+    .bubble.user{background:#0d6efd;color:#fff}
+    .bubble.bot{background:#f1f3f5}
+    .dim{opacity:.55}
+    pre.stats{white-space:pre-wrap;background:#fff;border:1px solid #e9ecef;border-radius:.5rem;padding:12px}
   </style>
 </head>
 <body>
-  <div class="container chat-card">
-    <div class="card shadow-sm">
-      <div class="card-header d-flex align-items-center gap-2">
-        <span>🤖</span>
-        <div>
-          <div class="fw-bold">Smart EHS Assistant</div>
-          <div class="text-muted small">Ask about incidents, SDS, CAPAs, safety concerns…</div>
-        </div>
+<div class="container py-4">
+  <!-- Hero -->
+  <div class="hero mb-4">
+    <div class="d-flex align-items-center gap-3">
+      <div style="font-size:2rem;">🤖</div>
+      <div>
+        <h1 class="h3 m-0">Smart EHS Assistant</h1>
+        <div class="opacity-75">Ask about incidents, SDS, CAPAs, safety concerns, audits…</div>
       </div>
+    </div>
+  </div>
 
-      <div id="chat-history" class="card-body" style="height:56vh; overflow-y:auto;">
-        <div class="text-muted small mb-3">
-          Tip: try “report incident”, “find SDS for acetone”, or “suggest CAPAs”.
-        </div>
+  <!-- Quick Actions (older interface style) -->
+  <div class="row g-3 mb-4" id="quick-actions">
+    <div class="col-12">
+      <div class="alert alert-light border d-flex align-items-center gap-2 m-0">
+        <span class="text-muted">Tip:</span>
+        <span class="text-muted">try <em>“report incident”</em>, <em>“find SDS for acetone”</em>, or <em>“suggest CAPAs”</em>.</span>
       </div>
+    </div>
 
-      <div class="card-footer">
-        <form id="chat-form" action="/chat" method="post"> <!-- non-JS fallback -->
-          <div class="input-group">
-            <input id="chat-input" name="message" type="text" class="form-control" placeholder="Type a message…" autocomplete="off">
-            <button id="send-btn" class="btn btn-primary" type="submit">Send</button>
+    <div class="col-sm-6 col-lg-3">
+      <div class="card quick-card" data-msg="Help with this page">
+        <div class="card-body d-flex align-items-center gap-2">
+          <div>📖</div>
+          <div>
+            <div class="fw-semibold">Help with this page</div>
+            <div class="text-muted small">What can I do here?</div>
           </div>
-        </form>
-        <div class="mt-2">
-          <button id="reset-btn" class="btn btn-outline-secondary btn-sm">Reset</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-sm-6 col-lg-3">
+      <div class="card quick-card" data-msg="Report incident">
+        <div class="card-body d-flex align-items-center gap-2">
+          <div>🚨</div>
+          <div>
+            <div class="fw-semibold">Report Incident</div>
+            <div class="text-muted small">Start a new report</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-sm-6 col-lg-3">
+      <div class="card quick-card" data-msg="Safety concern">
+        <div class="card-body d-flex align-items-center gap-2">
+          <div>🛡️</div>
+          <div>
+            <div class="fw-semibold">Safety Concern</div>
+            <div class="text-muted small">Log a near miss/unsafe act</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-sm-6 col-lg-3">
+      <div class="card quick-card" data-msg="Find SDS">
+        <div class="card-body d-flex align-items-center gap-2">
+          <div>📋</div>
+          <div>
+            <div class="fw-semibold">Find SDS</div>
+            <div class="text-muted small">Search a chemical SDS</div>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
-  <noscript>
-    <div class="container"><div class="alert alert-warning mt-3">
-      JavaScript is disabled. Submitting will do a full page post to <code>/chat</code>.
-    </div></div>
-  </noscript>
+  <!-- Main content: Chat (left) + Stats (right) -->
+  <div class="row g-4">
+    <div class="col-lg-8">
+      <div class="chat-card">
+        <div class="chat-body p-3" id="chat-history">
+          <!-- initial greeting goes here by JS -->
+        </div>
+        <div class="mt-2">
+          <!-- non-JS fallback posts to /chat -->
+          <form id="chat-form" action="/chat" method="post" enctype="multipart/form-data">
+            <div class="row g-2">
+              <div class="col-12 col-md">
+                <input id="chat-input" name="message" type="text" class="form-control" placeholder="Type a message…" autocomplete="off">
+              </div>
+              <div class="col-auto">
+                <input id="chat-file" name="file" type="file" class="form-control">
+              </div>
+              <div class="col-auto">
+                <button id="send-btn" class="btn btn-primary" type="submit">Send</button>
+              </div>
+              <div class="col-auto">
+                <button id="reset-btn" class="btn btn-outline-secondary" type="button">Reset</button>
+              </div>
+            </div>
+          </form>
+          <div class="form-text mt-1">Files: PDF/PNG/JPG/TXT allowed.</div>
+        </div>
+      </div>
+    </div>
 
-  <script>
-    // ——— utilities
-    function el(id){ return document.getElementById(id); }
-    function bubble(text, who){
-      const row = document.createElement('div');
-      row.className = (who==='user'?'text-end':'text-start') + ' mb-2';
-      const b = document.createElement('div');
-      b.className = 'bubble rounded-3 p-2 d-inline-block ' + (who==='user'?'user':'bot');
-      b.textContent = text;
-      row.appendChild(b);
-      el('chat-history').appendChild(row);
-      el('chat-history').scrollTop = el('chat-history').scrollHeight;
+    <div class="col-lg-4">
+      <!-- System stats panel (older interface polled /api/stats) -->
+      <div class="card">
+        <div class="card-body">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <div>📈</div>
+            <div class="fw-semibold">System Stats</div>
+          </div>
+          <div id="stats-view" class="text-muted small">Loading…</div>
+          <pre class="stats mt-2 d-none" id="stats-raw"></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<noscript>
+  <div class="container"><div class="alert alert-warning mt-3">
+    JavaScript is disabled. Submitting will do a full page post to <code>/chat</code>.
+  </div></div>
+</noscript>
+
+<script>
+  // helpers
+  const $ = (id)=>document.getElementById(id);
+
+  function appendBubble(text, who){
+    const wrap = document.createElement('div');
+    wrap.className = (who==='user'?'text-end':'text-start') + ' mb-2';
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble rounded-3 p-2 d-inline-block ' + (who==='user'?'user':'bot');
+    bubble.textContent = text;
+    wrap.appendChild(bubble);
+    $('chat-history').appendChild(wrap);
+    $('chat-history').scrollTop = $('chat-history').scrollHeight;
+  }
+
+  async function postChat(msg, file){
+    const fd = new FormData();
+    if (msg) fd.append('message', msg);
+    if (file) fd.append('file', file);
+    const res = await fetch('/chat', { method:'POST', body: fd });
+    if (!res.ok) throw new Error('HTTP '+res.status);
+    return await res.json();
+  }
+
+  async function resetChat(){
+    try{ await fetch('/chat/reset',{method:'POST'}); }catch(e){}
+    $('chat-history').innerHTML = '';
+    appendBubble("👋 Hello! I'm your Smart EHS Assistant. I can help you with anything on this page.", 'bot');
+    // restore quick tips (older interface feel)
+    appendBubble("Try: “Help with this page”, “Report incident”, “Find SDS”, “Safety concern”.", 'bot');
+  }
+
+  async function loadStats(){
+    try{
+      const r = await fetch('/api/stats');
+      if(!r.ok) throw 0;
+      const data = await r.json();
+      // Render a small summary if we find known keys, else raw JSON.
+      const known = [];
+      if (data.incidents!=null) known.push(`Incidents: ${data.incidents}`);
+      if (data.capa_open!=null) known.push(`CAPA (open): ${data.capa_open}`);
+      if (data.capa_overdue!=null) known.push(`CAPA (overdue): ${data.capa_overdue}`);
+      if (data.sds_count!=null) known.push(`SDS: ${data.sds_count}`);
+      $('stats-view').textContent = known.length? known.join(' • ') : 'OK';
+      const raw = $('stats-raw');
+      raw.textContent = JSON.stringify(data, null, 2);
+      raw.classList.toggle('d-none', false);
+    }catch(e){
+      $('stats-view').textContent = 'Unavailable';
     }
+  }
 
-    async function postChat(message){
-      // Use FormData to match the backend; it also supports JSON fallback
-      const fd = new FormData();
-      fd.append('message', message);
-      const res = await fetch('/chat', { method:'POST', body: fd });
-      if (!res.ok) throw new Error('HTTP '+res.status);
-      return await res.json();
-    }
+  // wire UI
+  window.addEventListener('DOMContentLoaded', ()=>{
+    // greeting
+    resetChat();
 
-    async function resetChat(){
-      try { await fetch('/chat/reset', { method:'POST' }); } catch(e){}
-      el('chat-history').innerHTML = '';
-      bubble("👋 Hello! I'm your Smart EHS Assistant. How can I help?", 'bot');
-    }
+    const form = $('chat-form');
+    const input = $('chat-input');
+    const file = $('chat-file');
+    const sendBtn = $('send-btn');
+    const resetBtn = $('reset-btn');
 
-    // ——— main bind
-    window.addEventListener('DOMContentLoaded', () => {
-      const form = el('chat-form');
-      const input = el('chat-input');
-      const sendBtn = el('send-btn');
-      const resetBtn = el('reset-btn');
-
-      // greet
-      bubble("👋 Hello! I'm your Smart EHS Assistant. How can I help?", 'bot');
-
-      // prevent full page post (we keep it as fallback if JS fails)
-      form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        sendBtn.disabled = true;
-        const msg = (input.value || '').trim();
-        if (!msg){ sendBtn.disabled = false; return; }
-        bubble(msg, 'user');
-        input.value = '';
-        try {
-          const data = await postChat(msg);
-          bubble(data.message || 'OK', 'bot');
-        } catch(err){
-          console.error('Chat error', err);
-          bubble("I'm sorry, I'm having trouble connecting right now.", 'bot');
-        } finally {
-          sendBtn.disabled = false;
-        }
-      });
-
-      // also send on Enter
-      input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey){
-          e.preventDefault();
-          sendBtn.click();
-        }
-      });
-
-      // reset button
-      resetBtn.addEventListener('click', resetChat);
+    // submit (ajax)
+    form.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const msg = (input.value||'').trim();
+      const f = file.files && file.files[0];
+      if(!msg && !f) return;
+      appendBubble(msg || `📎 ${f?.name||'file'}`, 'user');
+      input.value = ''; file.value='';
+      sendBtn.disabled = true;
+      try{
+        const data = await postChat(msg, f);
+        appendBubble(data.message || 'OK', 'bot');
+      }catch(err){
+        console.error('chat error', err);
+        appendBubble("I'm sorry, I'm having trouble connecting right now.", 'bot');
+      }finally{
+        sendBtn.disabled = false;
+      }
     });
-  </script>
+
+    // enter to send
+    input.addEventListener('keydown', (e)=>{
+      if(e.key==='Enter' && !e.shiftKey){
+        e.preventDefault();
+        $('send-btn').click();
+      }
+    });
+
+    // reset
+    resetBtn.addEventListener('click', resetChat);
+
+    // quick actions (older interface cards)
+    document.querySelectorAll('.quick-card').forEach(card=>{
+      card.addEventListener('click', ()=>{
+        const msg = card.getAttribute('data-msg') || '';
+        if(msg){
+          $('chat-input').value = msg;
+          $('send-btn').click();
+        }
+      });
+    });
+
+    // stats poll (older template used this)
+    loadStats();
+    setInterval(loadStats, 30000);
+  });
+</script>
 </body>
 </html>
