@@ -155,19 +155,11 @@ def create_app():
                              blueprints_loaded=blueprints_loaded), 404
     
     @app.errorhandler(500)
-    def internal_error(error):
-        print(f"Internal server error: {error}")
-        traceback.print_exc()
-        
-        if request.path.startswith('/api/'):
-            return jsonify({"error": "Internal server error"}), 500
-        
-        return render_template("error_500.html", 
-                             module_name="System Error",
-                             description="A system error occurred",
-                             blueprints_loaded=blueprints_loaded), 500
-    
-    @app.errorhandler(413)
+def internal_error(e):
+    try:
+        return render_template("error_500.html", error=str(e)), 500
+    except Exception:
+        return "Internal Server Error", 500
     def too_large(error):
         return jsonify({"error": "File too large. Maximum size is 16MB."}), 413
     
