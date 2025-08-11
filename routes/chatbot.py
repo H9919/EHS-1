@@ -1,13 +1,14 @@
 # routes/chatbot.py — full-featured, fixed endpoints, compatible with UI
 from flask import Blueprint, request, jsonify, render_template, current_app as app
 from pathlib import Path
-import time, json, logging
+import time, json, logging, re
 
 from services.ehs_chatbot import SmartEHSChatbot, SmartIntentClassifier, five_whys_manager
 from services.capa_manager import CAPAManager
 from utils.uploads import is_allowed, save_upload
 
-import re
+# Toggle this to quickly test with/without input normalization
+NORMALIZE_INPUTS = True
 
 def _normalize_intent_text(t: str) -> str:
     s = (t or "").strip().lower()
@@ -24,8 +25,7 @@ def _normalize_intent_text(t: str) -> str:
         return "What's urgent?"
     if re.search(r"\btour\b|\bgetting started\b|\bguide\b|\bonboard\b", s):
         return "Help with this page"
-    return t
-
+    return t or ""
 
 chatbot_bp = Blueprint("chatbot", __name__)
 
@@ -48,76 +48,70 @@ def chat_interface():
     # POST: process chat message
     t0 = time.monotonic()
     payload = request.get_json(silent=True) or {}
-    user_message = (request.form.get("message") or payload.get("message") or "").strip()
-    user_message = _normalize_intent_text(user_message)
+    raw_msg = (request.form.get("message") or payload.get("message") or "").strip()
+    user_message = _normalize_intent_text(raw_msg) if NORMALIZE_INPUTS else raw_msg
     user_id = (request.form.get("user_id") or "main_chat_user").strip()
     uploaded_file = request.files.get("file")
 
     if not user_message and not uploaded_file:
         return jsonify({"message": "Please type a message or attach a file.", "type": "error"}), 400
 
-    # Lightweight intent for fast first reply
+    # Lightweight intent for telemetry/metadata only (do NOT branch on this)
     try:
-        intent, conf = _quick.classify_intent(user_message)
+        intent, conf = _quick.classify_intent(user_message or raw_msg)
     except Exception:
         intent, conf = None, 0.0
 
-    # File ack path
+    # File ack path (early return just for uploads)
     if uploaded_file:
         if is_allowed(uploaded_file.filename, uploaded_file.mimetype):
             try:
                 save_upload(uploaded_file, Path("data/tmp"))
             except Exception as e:
                 app.logger.warning("file save failed: %s", e)
-            app.logger.info("chat:fast_file %.3fs", time.monotonic()-t0)
+            app.logger.info("chat:fast_file %.3fs", time.monotonic() - t0)
             return jsonify({
                 "message": f"📎 Received your file: {uploaded_file.filename}. What would you like me to do with it?",
                 "type": "file_ack",
                 "intent": intent,
                 "confidence": conf
             })
-        else:
-            return jsonify({
-                "message": "This file type is not allowed. Please upload PDF/PNG/JPG/TXT.",
-                "type": "error"
-            }), 400
-
-    # Fast path for incident start
-    if intent == "incident_reporting":
-        msg = (
-            "Okay—let’s start your incident report.\n"
-            "What kind of incident is it? (injury, vehicle, near miss, property, "
-            "environmental, security, depot, other)"
-        )
-        app.logger.info("chat:fast_first %.3fs", time.monotonic()-t0)
-        return jsonify({"message": msg, "type": "incident_start", "intent": intent, "confidence": conf})
-
-    # Default quick reply to keep UI responsive
-    if intent is None:
-        app.logger.info('chat:fast_prompt')
         return jsonify({
-            'message': 'How can I help? (report incident, safety concern, SDS help, or general question)',
-            'type': 'prompt', 'intent': intent, 'confidence': conf
-        })
+            "message": "This file type is not allowed. Please upload PDF/PNG/JPG/TXT.",
+            "type": "error"
+        }), 400
 
-    # Full smart processing
+    # ✅ Always delegate conversational logic to the stateful bot
     bot = get_chatbot()
     t1 = time.monotonic()
     try:
-        result = bot.process_message(user_message, user_id=user_id, context={})
-    except Exception:
+        result = bot.process_message(user_message, user_id=user_id, context={"source": "web"})
+    except Exception as e:
         app.logger.exception("chat:bot_crash")
-        return jsonify({"message": "Sorry—something went wrong handling that.", "type": "error"}), 500
+        return jsonify({"message": f"Sorry—something went wrong handling that. ({e})", "type": "error"}), 500
 
-    app.logger.info("chat:smart %.3fs (total %.3fs)", time.monotonic()-t1, time.monotonic()-t0)
+    app.logger.info("chat:smart %.3fs (total %.3fs)", time.monotonic() - t1, time.monotonic() - t0)
+
+    # Normalize response and attach quick-intent telemetry for the UI (non-breaking)
     if isinstance(result, dict):
         result.setdefault("type", "message")
         result.setdefault("message", "OK")
+        # Do not overwrite bot's own intent fields if present
+        if "quick_intent" not in result:
+            result["quick_intent"] = intent
+        if "quick_confidence" not in result:
+            result["quick_confidence"] = conf
         return jsonify(result)
-    else:
-        return jsonify({"message": str(result), "type": "message"})
 
-# 5 Whys
+    return jsonify({
+        "message": str(result),
+        "type": "message",
+        "quick_intent": intent,
+        "quick_confidence": conf
+    })
+
+# ---------- 5 Whys endpoints ----------
+
 @chatbot_bp.post("/five_whys/start")
 @chatbot_bp.post("/chat/five_whys/start")
 def five_whys_start():
@@ -144,20 +138,23 @@ def five_whys_answer():
     if done:
         chain = sess["whys"]
         try:
-            DATA_DIR = Path("data"); INCIDENTS_JSON = DATA_DIR / "incidents.json"
+            DATA_DIR = Path("data")
+            INCIDENTS_JSON = DATA_DIR / "incidents.json"
             if incident_id and INCIDENTS_JSON.exists():
                 items = json.loads(INCIDENTS_JSON.read_text())
                 if incident_id in items:
                     items[incident_id]["root_cause_whys"] = chain
                     INCIDENTS_JSON.write_text(json.dumps(items, indent=2))
         except Exception:
+            # Non-fatal; just don't persist
             pass
         return jsonify({"ok": True, "complete": True, "whys": chain, "message": "5 Whys completed."})
     else:
         next_step = sess["step"] + 1
-        return jsonify({"ok": True, "complete": False, "prompt": f"Why {next_step}?", "progress": len(sess['whys']) })
+        return jsonify({"ok": True, "complete": False, "prompt": f"Why {next_step}?", "progress": len(sess['whys'])})
 
-# CAPA suggestions
+# ---------- CAPA suggestions ----------
+
 @chatbot_bp.post("/capa/suggest")
 @chatbot_bp.post("/chat/capa/suggest")
 def capa_suggest():
@@ -166,11 +163,14 @@ def capa_suggest():
         return jsonify({"ok": False, "error": "Please provide a short description."}), 400
     mgr = CAPAManager()
     res = mgr.suggest_corrective_actions(desc)
-    out = {"ok": True}; out.update(res)
+    out = {"ok": True}
+    out.update(res)
     return jsonify(out)
 
+# ---------- Session reset (actually resets) ----------
 
 @chatbot_bp.post("/chat/reset")
 def chat_reset():
-    # Stateless reset ack for the UI
+    global _CHATBOT
+    _CHATBOT = None
     return jsonify({"ok": True, "message": "Session reset."})
